@@ -1,0 +1,32 @@
+# my global config
+global:
+  scrape_interval:     15s
+  evaluation_interval: 30s
+  # scrape_timeout is set to the global default (10s).
+
+  external_labels:
+    monitor: codelab
+
+rule_files:
+- "first.rules"
+- "/absolute/second.rules"
+- "my/*.rules"
+
+scrape_configs:
+- job_name: prometheus
+  honor_labels: true
+  target_groups:
+  - targets: ['localhost:9090', 'localhost:9191']
+
+- job_name: nodeapp
+  scrape_interval: 15s
+  scrape_timeout:  5s
+  metrics_path: /metrics
+  scheme: http
+  target_groups:
+  - targets: ['nodeapp:9090']
+
+#- job_name: mongo
+
+#  scrape_interval: 15s
+#  scrape_timeout:  5s

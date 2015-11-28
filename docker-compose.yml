@@ -1,0 +1,16 @@
+nodeapp:
+  build: ./nodeapp
+  ports:
+    - "3000:3000"
+    - "9091:9090"
+
+mongo:
+  image: mongo:3
+
+prometheus:
+  build: ./prometheus
+  ports:
+    - "9090:9090"
+  links:
+    - nodeapp
+    - mongo
