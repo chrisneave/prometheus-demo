@@ -7,6 +7,9 @@ nodeapp:
 mongo:
   image: mongo:3
 
+node_exporter:
+  image: prom/node-exporter
+
 prometheus:
   build: ./prometheus
   ports:
@@ -14,3 +17,4 @@ prometheus:
   links:
     - nodeapp
     - mongo
+    - node_exporter:system
