@@ -10,11 +10,17 @@ mongo:
 node_exporter:
   image: prom/node-exporter
 
+mongodb_exporter:
+  image: lowstz/mongodb-exporter
+  links:
+    - mongo
+  command: -mongodb.uri=mongodb://mongo:27017
+
 prometheus:
   build: ./prometheus
   ports:
     - "9090:9090"
   links:
     - nodeapp
-    - mongo
     - node_exporter:system
+    - mongodb_exporter:mongo
