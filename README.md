@@ -40,8 +40,8 @@ docker-compose up -d
 
 ## Stopping the demo
 
-To stop all running components either hit `CTRL+C` execute the
-following:
+To stop all running components either hit `CTRL+C` if running interactively or
+execute the following when running in the background:
 
 ```
 docker-compose stop
