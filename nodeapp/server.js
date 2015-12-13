@@ -3,28 +3,31 @@ var morgan = require('morgan');
 var onFinished = require('on-finished');
 var Prometheus = require('prometheus-client');
 var metrics = new Prometheus();
+var nodeMetrics = require('./nodeMetrics');
 var metricsApp = express();
 var app = express();
 
-var requests = metrics.newCounter({
-  namespace: 'nodeapp',
-  name: 'http_request_count',
-  help: 'The number of HTTP requests received'
-});
-
-var activeRequests = metrics.newCounter({
-  namespace: 'nodeapp',
-  name: 'http_request_active',
-  help: 'The number of HTTP requests currently being handled'
-});
-
-var requestDuration = metrics.newGauge({
-  namespace: 'nodeapp',
-  name: 'http_request_duration',
-  help: 'The duration of each request in milliseconds'
-});
+nodeMetrics('nodeapp');
 
 function createRequestCounter(endpointName) {
+  var requests = metrics.newCounter({
+    namespace: 'nodeapp',
+    name: 'http_request_count',
+    help: 'The number of HTTP requests received'
+  });
+
+  var activeRequests = metrics.newCounter({
+    namespace: 'nodeapp',
+    name: 'http_request_active',
+    help: 'The number of HTTP requests currently being handled'
+  });
+
+  var requestDuration = metrics.newGauge({
+    namespace: 'nodeapp',
+    name: 'http_request_duration',
+    help: 'The duration of each request in milliseconds'
+  });
+
   return function requestCounter(req, res, next) {
     var duration = process.hrtime();
     requests.increment({ endpoint: endpointName });
@@ -40,7 +43,6 @@ function createRequestCounter(endpointName) {
 }
 
 metricsApp.use(morgan('dev'));
-metricsApp.use(createRequestCounter('nodeapp_metrics'));
 metricsApp.get('/metrics', metrics.metricsFunc());
 
 metricsApp.listen(9090, function() {
@@ -60,6 +62,6 @@ app.get('/slow', function(req, res, next) {
   }, Math.random() * 1000);
 });
 
-app.listen(3000, function() {
+var server = app.listen(3000, function() {
   console.log('nodeapp listening on port 3000');
 });
