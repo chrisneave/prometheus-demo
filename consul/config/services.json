@@ -1,0 +1,20 @@
+{
+  "services": [
+    {
+      "id": "nodeapp1",
+      "name": "node_app_1",
+      "tags": [
+        "master"
+      ],
+      "address": "192.168.99.100",
+      "port": 3000,
+      "checks": [
+        {
+          "http": "http://192.168.99.100:3000/",
+          "interval": "5s",
+          "timeout": "1s"
+        }
+      ]
+    }
+  ]
+}
