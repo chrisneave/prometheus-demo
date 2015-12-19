@@ -1,1 +1,0 @@
-FROM progrium/consul:latest
