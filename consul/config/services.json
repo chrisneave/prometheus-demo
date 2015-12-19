@@ -4,13 +4,29 @@
       "id": "nodeapp1",
       "name": "node_app_1",
       "tags": [
-        "master"
+        "app"
       ],
-      "address": "192.168.99.100",
+      "address": "nodeapp",
       "port": 3000,
       "checks": [
         {
-          "http": "http://192.168.99.100:3000/",
+          "http": "http://nodeapp:3000/",
+          "interval": "5s",
+          "timeout": "1s"
+        }
+      ]
+    },
+    {
+      "id": "nodeappmetrics1",
+      "name": "node_app_metrics_1",
+      "tags": [
+        "metrics"
+      ],
+      "address": "nodeapp",
+      "port": 9090,
+      "checks": [
+        {
+          "http": "http://nodeapp:9091/metrics",
           "interval": "5s",
           "timeout": "1s"
         }
