@@ -1,0 +1,25 @@
+#!/bin/sh
+docker rmi $(docker images -q --filter "dangling=true") > /dev/null 2>&1
+
+docker rm --force prometheus-demo-mongo > /dev/null 2>&1
+docker rm --force prometheus-demo-mongodb-exporter > /dev/null 2>&1
+docker rm --force prometheus-demo-node-exporter > /dev/null 2>&1
+docker rm --force prometheus-demo-nodeapp > /dev/null 2>&1
+docker rm --force prometheus-demo-consul > /dev/null 2>&1
+docker rm --force prometheus-demo-prom > /dev/null 2>&1
+
+docker build --tag="prometheus-demo-nodeapp:latest" ./nodeapp
+docker build --tag="prometheus-demo-prom:latest" ./prometheus
+
+docker run --name="prometheus-demo-mongo" -d -p "27017:27017" mongo:3 > /dev/null 2>&1
+docker run --name="prometheus-demo-mongodb-exporter" -d --link="prometheus-demo-mongo:mongo" lowstz/mongodb-exporter:latest -mongodb.uri=mongodb://mongo:27017 > /dev/null 2>&1
+docker run --name="prometheus-demo-node-exporter" -d prom/node-exporter:latest > /dev/null 2>&1
+CONSUL_ID=$(docker run --name="prometheus-demo-consul" -d --hostname="node1" -p "8400:8400" -p "8500:8500" -p "8600:53/udp" progrium/consul:latest -server -bootstrap -data-dir /data -ui-dir /ui)
+CONSUL_HOST=$(docker inspect --format="{{.NetworkSettings.IPAddress}}" $CONSUL_ID)
+docker run --name="prometheus-demo-nodeapp" -d -p "3000:3000" --env "CONSUL_HOST=$CONSUL_HOST" --env "CONSUL_PORT=8500" prometheus-demo-nodeapp:latest > /dev/null 2>&1
+
+sleep 3
+
+docker run --name="prometheus-demo-prom" -d -p "9090:9090" --link="prometheus-demo-mongodb-exporter:mongodb-exporter" --link="prometheus-demo-node-exporter:node-exporter" --link="prometheus-demo-consul:consul" prometheus-demo-prom:latest > /dev/null 2>&1
+
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.ID}}"

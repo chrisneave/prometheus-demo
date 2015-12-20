@@ -29,20 +29,5 @@ To start the components of the demo execute the following command from the root
 folder:
 
 ```
-docker-compose up
-```
-
-To run the components in the background add the `-d` argument to the command:
-
-```
-docker-compose up -d
-```
-
-## Stopping the demo
-
-To stop all running components either hit `CTRL+C` if running interactively or
-execute the following when running in the background:
-
-```
-docker-compose stop
+./run
 ```
