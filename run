@@ -9,7 +9,6 @@ docker rm --force prometheus-demo-consul > /dev/null 2>&1
 docker rm --force prometheus-demo-prom > /dev/null 2>&1
 
 docker build --tag="prometheus-demo-nodeapp:latest" ./nodeapp
-docker build --tag="prometheus-demo-prom:latest" ./prometheus
 
 docker run --name="prometheus-demo-mongo" -d -p "27017:27017" mongo:3 > /dev/null 2>&1
 docker run --name="prometheus-demo-mongodb-exporter" -d --link="prometheus-demo-mongo:mongo" lowstz/mongodb-exporter:latest -mongodb.uri=mongodb://mongo:27017 > /dev/null 2>&1
@@ -20,6 +19,8 @@ docker run --name="prometheus-demo-nodeapp" -d -p "3000:3000" --env "CONSUL_HOST
 
 sleep 3
 
-docker run --name="prometheus-demo-prom" -d -p "9090:9090" --link="prometheus-demo-mongodb-exporter:mongodb-exporter" --link="prometheus-demo-node-exporter:node-exporter" --link="prometheus-demo-consul:consul" prometheus-demo-prom:latest > /dev/null 2>&1
+docker create --name="prometheus-demo-prom" -p "9090:9090" --link="prometheus-demo-mongodb-exporter:mongodb-exporter" --link="prometheus-demo-node-exporter:node-exporter" --link="prometheus-demo-consul:consul" prom/prometheus:latest
+docker cp ./prometheus.yml prometheus-demo-prom:/etc/prometheus/prometheus.yml
+docker start prometheus-demo-prom > /dev/null 2>&1
 
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.ID}}"
