@@ -16,7 +16,7 @@ scrape_configs:
 - job_name: prometheus
   honor_labels: true
   target_groups:
-  - targets: ['localhost:9090', 'localhost:9191']
+  - targets: ['localhost:9090']
 
 - job_name: system
   metrics_path: /metrics
@@ -27,11 +27,14 @@ scrape_configs:
 - job_name: nodeapp
   consul_sd_configs:
   - server: 'consul:8500'
-    services: ['node_app_metrics_1']
+  relabel_configs:
+  # Ignore target services unless they are tagged in Consul with 'metrics'.
+  - source_labels: ['__meta_consul_tags']
+    regex:         'metrics,|,metrics,|,metrics'
+    action:        keep
   # Relable the __address__ label of the service to use the service address and
   # port from Consul. By default, Prometheus will just assume the Consul agent IP
   # is correct.
-  relabel_configs:
   - source_labels: ['__meta_consul_service_address', '__meta_consul_service_port']
     separator:     ':'
     regex:         '(.*)'
