@@ -1,4 +1,19 @@
 #!/bin/sh
+
+pushd . > /dev/null 2>&1
+mkdir -p consul-template/bin
+cd consul-template/bin
+if [ ! -f docker ]; then
+  curl -O https://get.docker.com/builds/Linux/x86_64/docker-1.9.0
+  mv docker-1.9.0 docker
+fi
+if [ ! -f consul-template ]; then
+  curl -O https://releases.hashicorp.com/consul-template/0.12.0/consul-template_0.12.0_linux_amd64.zip
+  unzip consul-template_0.12.0_linux_amd64.zip
+  rm consul-template_0.12.0_linux_amd64.zip
+fi
+popd > /dev/null 2>&1
+
 docker rmi $(docker images -q --filter "dangling=true") > /dev/null 2>&1
 
 docker rm --force prometheus-demo-mongo > /dev/null 2>&1
@@ -6,9 +21,12 @@ docker rm --force prometheus-demo-mongodb-exporter > /dev/null 2>&1
 docker rm --force prometheus-demo-node-exporter > /dev/null 2>&1
 docker rm --force prometheus-demo-nodeapp > /dev/null 2>&1
 docker rm --force prometheus-demo-consul > /dev/null 2>&1
+docker rm --force prometheus-demo-nginx > /dev/null 2>&1
+docker rm --force prometheus-demo-consul-template > /dev/null 2>&1
 docker rm --force prometheus-demo-prom > /dev/null 2>&1
 
 docker build --tag="prometheus-demo-nodeapp:latest" ./nodeapp
+docker build --tag="prometheus-demo-consul-template:latest" ./consul-template
 
 docker run --name="prometheus-demo-mongo" -d -p "27017:27017" mongo:3 > /dev/null 2>&1
 docker run --name="prometheus-demo-mongodb-exporter" -d --link="prometheus-demo-mongo:mongo" lowstz/mongodb-exporter:latest -mongodb.uri=mongodb://mongo:27017 > /dev/null 2>&1
@@ -17,9 +35,18 @@ CONSUL_ID=$(docker run --name="prometheus-demo-consul" -d --hostname="node1" -p 
 CONSUL_HOST=$(docker inspect --format="{{.NetworkSettings.IPAddress}}" $CONSUL_ID)
 docker run --name="prometheus-demo-nodeapp" -d -p "3000:3000" --env "CONSUL_HOST=$CONSUL_HOST" --env "CONSUL_PORT=8500" prometheus-demo-nodeapp:latest > /dev/null 2>&1
 
+docker create --name="prometheus-demo-nginx-conf" -v /etc/nginx nginx:latest > /dev/null 2>&1
+docker run --name="prometheus-demo-nginx" -d --volumes-from="prometheus-demo-nginx-conf" -p "8080:8080" nginx:latest > /dev/null 2>&1
+
+docker create --name="prometheus-demo-consul-template" --link="prometheus-demo-consul:consul" -v /var/run/docker.sock:/var/run/docker.sock --volumes-from="prometheus-demo-nginx-conf" prometheus-demo-consul-template:latest  > /dev/null 2>&1
+docker cp ./consul-template/nginx.ctmpl prometheus-demo-consul-template:/tmp/nginx.ctmpl
+docker start prometheus-demo-consul-template > /dev/null 2>&1
+
+# Give Consul a chance to load config before starting Prometheus. If not then
+# Prometheus will be unable to load the metrics services from Consul.
 sleep 3
 
-docker create --name="prometheus-demo-prom" -p "9090:9090" --link="prometheus-demo-mongodb-exporter:mongodb-exporter" --link="prometheus-demo-node-exporter:node-exporter" --link="prometheus-demo-consul:consul" prom/prometheus:latest
+docker create --name="prometheus-demo-prom" -p "9090:9090" --link="prometheus-demo-mongodb-exporter:mongodb-exporter" --link="prometheus-demo-node-exporter:node-exporter" --link="prometheus-demo-consul:consul" prom/prometheus:latest > /dev/null 2>&1
 docker cp ./prometheus.yml prometheus-demo-prom:/etc/prometheus/prometheus.yml
 docker start prometheus-demo-prom > /dev/null 2>&1
 
