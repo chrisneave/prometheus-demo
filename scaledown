@@ -1,0 +1,11 @@
+#!/bin/sh
+APP=$1
+for name in `docker ps -a --format="{{.Names}}" --filter="name=prometheus-demo-"$APP`
+do
+  lastid=$(echo "$name" | sed 's/[^0-9]//g')
+  break
+done
+
+NAME="prometheus-demo-"$APP"_"$lastid
+docker stop $NAME > /dev/null 2>&1
+docker rm $NAME > /dev/null 2>&1

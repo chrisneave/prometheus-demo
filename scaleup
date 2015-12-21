@@ -1,0 +1,16 @@
+#!/bin/sh
+APP=$1
+for name in `docker ps -a --format="{{.Names}}" --filter="name=prometheus-demo-"$APP`
+do
+  lastid=$(echo "$name" | sed 's/[^0-9]//g')
+  break
+done
+nextid=$((lastid+1))
+
+echo "Scaling $APP to $nextid instances"
+CONSUL_ID=$(docker ps -q --filter="name=prometheus-demo-consul-agent")
+CONSUL_HOST=$(docker inspect --format="{{.NetworkSettings.IPAddress}}" $CONSUL_ID)
+
+NAME="prometheus-demo-"$APP"_"$nextid
+IMAGE="prometheus-demo-"$APP":latest"
+docker run --name=$NAME -d --env "CONSUL_HOST=$CONSUL_HOST" --env "CONSUL_PORT=8500" $IMAGE > /dev/null 2>&1
