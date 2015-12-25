@@ -27,7 +27,7 @@ docker build --tag="prometheus-demo-consul-template:latest" ./consul-template
 docker run --name="prometheus-demo-mongo" -d -p "27017:27017" mongo:3 > /dev/null 2>&1
 docker run --name="prometheus-demo-mongodb-exporter" -d --link="prometheus-demo-mongo:mongo" lowstz/mongodb-exporter:latest -mongodb.uri=mongodb://mongo:27017 > /dev/null 2>&1
 docker run --name="prometheus-demo-node-exporter" -d prom/node-exporter:latest > /dev/null 2>&1
-
+docker run --name="prometheus-demo-container-exporter" -d -v /sys/fs/cgroup:/cgroup -v /var/run/docker.sock:/var/run/docker.sock prom/container-exporter > /dev/null 2>&1
 docker run --name="prometheus-demo-consul-agent" -d --hostname="node1" -p "8400:8400" -p "8500:8500" -p "8600:53/udp" progrium/consul:latest -server -bootstrap -data-dir /data -ui-dir /ui > /dev/null 2>&1
 
 ./scaleup nodeapp
@@ -44,7 +44,13 @@ docker start prometheus-demo-consul-template > /dev/null 2>&1
 # Prometheus will be unable to load the metrics services from Consul.
 sleep 3
 
-docker create --name="prometheus-demo-prom" -p "9090:9090" --link="prometheus-demo-mongodb-exporter:mongodb-exporter" --link="prometheus-demo-node-exporter:node-exporter" --link="prometheus-demo-consul-agent:consul" prom/prometheus:latest > /dev/null 2>&1
+docker create --name="prometheus-demo-prom" \
+  -p "9090:9090" \
+  --link="prometheus-demo-mongodb-exporter:mongodb-exporter" \
+  --link="prometheus-demo-node-exporter:node-exporter" \
+  --link="prometheus-demo-container-exporter:container-exporter" \
+  --link="prometheus-demo-consul-agent:consul" \
+  prom/prometheus:latest > /dev/null 2>&1
 docker cp ./prometheus.yml prometheus-demo-prom:/etc/prometheus/prometheus.yml
 docker start prometheus-demo-prom > /dev/null 2>&1
 
