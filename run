@@ -16,13 +16,23 @@ popd > /dev/null 2>&1
 
 docker rmi $(docker images -q --filter "dangling=true") > /dev/null 2>&1
 
-for id in `docker ps -a -q --filter="name=prometheus-demo-"$APP`
+for id in $(docker ps -a -q --filter="name=prometheus-demo-")
 do
   docker rm --force $id > /dev/null 2>&1
 done
 
 docker build --tag="prometheus-demo-nodeapp:latest" ./nodeapp
 docker build --tag="prometheus-demo-consul-template:latest" ./consul-template
+
+if [[ $(docker ps -a -q --filter="name=prometheus-demo-promdash-data") == "" ]]; then
+  docker create --name="prometheus-demo-promdash-data" \
+    -v /tmp/prom \
+    prom/promdash > /dev/null 2>&1
+  docker run --rm \
+    --volumes-from prometheus-demo-promdash-data \
+    --env "DATABASE_URL=sqlite3:/tmp/prom/file.sqlite3" \
+    prom/promdash ./bin/rake db:migrate > /dev/null 2>&1
+fi
 
 docker run --name="prometheus-demo-mongo" -d -p "27017:27017" mongo:3 > /dev/null 2>&1
 docker run --name="prometheus-demo-mongodb-exporter" -d --link="prometheus-demo-mongo:mongo" lowstz/mongodb-exporter:latest -mongodb.uri=mongodb://mongo:27017 > /dev/null 2>&1
@@ -55,5 +65,12 @@ docker create --name="prometheus-demo-prom" \
   prom/prometheus:latest > /dev/null 2>&1
 docker cp ./prometheus.yml prometheus-demo-prom:/etc/prometheus/prometheus.yml
 docker start prometheus-demo-prom > /dev/null 2>&1
+
+docker run --name="prometheus-demo-promdash" \
+  -d \
+  -p "4000:3000" \
+  --volumes-from prometheus-demo-promdash-data \
+  --env DATABASE_URL=sqlite3:/tmp/prom/file.sqlite3 \
+  prom/promdash > /dev/null 2>&1
 
 docker ps -a --format "table {{.Names}}\t{{.ID}}\t{{.Status}}" --filter="name=prometheus-demo-"
