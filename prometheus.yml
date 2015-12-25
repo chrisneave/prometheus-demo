@@ -52,3 +52,9 @@ scrape_configs:
   scheme: http
   target_groups:
   - targets: ['container-exporter:9104']
+
+- job_name: consul
+  metrics_path: /metrics
+  scheme: http
+  target_groups:
+  - targets: ['consul-exporter:9107']
