@@ -39,7 +39,13 @@ docker run --name="prometheus-demo-mongodb-exporter" -d --link="prometheus-demo-
 docker run --name="prometheus-demo-node-exporter" -d prom/node-exporter:latest > /dev/null 2>&1
 docker run --name="prometheus-demo-container-exporter" -d -v /sys/fs/cgroup:/cgroup -v /var/run/docker.sock:/var/run/docker.sock prom/container-exporter > /dev/null 2>&1
 docker run --name="prometheus-demo-consul-agent" -d --hostname="node1" -p "8400:8400" -p "8500:8500" -p "8600:53/udp" progrium/consul:latest -server -bootstrap -data-dir /data -ui-dir /ui > /dev/null 2>&1
-docker run --name="prometheus-demo-consul-exporter" -d --link="prometheus-demo-consul-agent:consul" prom/consul-exporter -consul.server=consul:8500 > /dev/null 2>&1
+docker run --name="prometheus-demo-consul-exporter" -d prom/consul-exporter -consul.server=consul:8500 > /dev/null 2>&1
+
+# Register Prometheus exporters with Consul.
+./register "container-exporter" 9104
+./register "node-exporter" 9100
+./register "mongodb-exporter" 9001
+./register "consul-exporter" 9107
 
 ./scaleup nodeapp
 ./scaleup nodeapp
@@ -57,10 +63,6 @@ sleep 3
 
 docker create --name="prometheus-demo-prom" \
   -p "9090:9090" \
-  --link="prometheus-demo-mongodb-exporter:mongodb-exporter" \
-  --link="prometheus-demo-node-exporter:node-exporter" \
-  --link="prometheus-demo-container-exporter:container-exporter" \
-  --link="prometheus-demo-consul-exporter:consul-exporter" \
   --link="prometheus-demo-consul-agent:consul" \
   prom/prometheus:latest > /dev/null 2>&1
 docker cp ./prometheus.yml prometheus-demo-prom:/etc/prometheus/prometheus.yml

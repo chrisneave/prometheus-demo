@@ -1,0 +1,13 @@
+#!/bin/sh
+
+TARGET_NAME=$1
+TARGET_PORT=$2
+
+TARGET_ID=$(docker ps -q --filter="name=prometheus-demo-$TARGET_NAME")
+TARGET_HOST=$(docker inspect --format="{{.NetworkSettings.IPAddress}}" $TARGET_ID)
+
+DATA="{ \"name\": \"$TARGET_NAME\", \"id\": \"$TARGET_NAME\", \"tags\": [\"metrics\"], \"address\": \"$TARGET_HOST\", \"port\": $TARGET_PORT, \"check\": { \"http\": \"http://$TARGET_HOST:$TARGET_PORT/metrics\", \"interval\": \"5s\", \"timeout\": \"1s\" } }"
+COMMAND="curl --request POST --header 'Content-Type: application/json' --data '$DATA' --silent http://consul:8500/v1/agent/service/register"
+sh -c "docker run --rm --link=\"prometheus-demo-consul-agent:consul\" tutum/curl $COMMAND"
+
+echo "Registered $TARGET_NAME ($TARGET_HOST) with Consul"
