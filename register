@@ -1,4 +1,7 @@
 #!/bin/sh
+# Use the Consul Agent HTTP endpoint to register a specific app.
+# A separate transient container is used to execute a cURL command to do the registration.
+# The container is linked to the Consul container by name to allow discovery.
 
 TARGET_NAME=$1
 TARGET_PORT=$2
