@@ -1,62 +1,144 @@
+var url = require('url');
 var v8 = require('v8');
-var Prometheus = require('prometheus-client');
-var metrics = new Prometheus();
+var onFinished = require('on-finished');
+var _ = require('underscore');
+var Prometheus = require('prometheus-client')
+var prometheus = new Prometheus();
 
-function createCollector(appName) {
-  var upTime = metrics.newGauge({
-    namespace: appName,
-    name: 'node_process_uptime',
+var namespace = 'nodejs';
+var metrics = {
+  process_uptime: prometheus.newGauge({
+    namespace: namespace,
+    name: 'process_uptime',
     help: 'The uptime of the node process in seconds'
-  });
-  var v8TotalHeapSize = metrics.newGauge({
-    namespace: appName,
-    name: 'node_v8_total_heap_size_bytes',
+  }),
+  /** Chrome V8 metrics **/
+  v8_total_heap_size_bytes: prometheus.newGauge({
+    namespace: namespace,
+    name: 'v8_total_heap_size_bytes',
     help: 'V8 total heap size in bytes'
-  });
-  var v8TotalHeapSizeExecutable = metrics.newGauge({
-    namespace: appName,
-    name: 'node_v8_total_heap_size_executable_bytes',
-    help: 'V8 total heap size of the executable code in bytes'
-  });
-  var v8TotalPhysicalSize = metrics.newGauge({
-    namespace: appName,
-    name: 'node_v8_total_physical_size_bytes',
+  }),
+  v8_total_executable_heap_size_bytes: prometheus.newGauge({
+    namespace: namespace,
+    name: 'v8_total_executable_heap_size_bytes',
+    help: 'V8 total heap size of executable code in bytes'
+  }),
+  v8_total_physical_size_bytes: prometheus.newGauge({
+    namespace: namespace,
+    name: 'v8_total_physical_size_bytes',
     help: 'V8 total physical size in bytes'
-  });
-  var v8TotalAvailableSize = metrics.newGauge({
-    namespace: appName,
-    name: 'node_v8_total_available_size_bytes',
+  }),
+  v8_total_available_size_bytes: prometheus.newGauge({
+    namespace: namespace,
+    name: 'v8_total_available_size_bytes',
     help: 'V8 total available size in bytes'
-  });
-  var v8UsedHeapSize = metrics.newGauge({
-    namespace: appName,
-    name: 'node_v8_used_heap_size_bytes',
+  }),
+  v8_used_heap_size_bytes: prometheus.newGauge({
+    namespace: namespace,
+    name: 'v8_used_heap_size_bytes',
     help: 'V8 used heap size in bytes'
-  });
-  var v8HeapSizeLimit = metrics.newGauge({
-    namespace: appName,
-    name: 'node_v8_heap_size_limit_bytes',
+  }),
+  v8_heap_size_limit_bytes: prometheus.newGauge({
+    namespace: namespace,
+    name: 'v8_heap_size_limit_bytes',
     help: 'V8 heap size limit in bytes'
-  });
+  }),
+  /** Nodejs HTTP metrics **/
+  http_request_count: prometheus.newCounter({
+    namespace: namespace,
+    name: 'http_request_count',
+    help: 'The number of HTTP requests received'
+  }),
+  http_request_active: prometheus.newCounter({
+    namespace: namespace,
+    name: 'http_request_active',
+    help: 'The number of HTTP requests currently being handled'
+  }),
+  http_request_duration: prometheus.newGauge({
+    namespace: namespace,
+    name: 'http_request_duration',
+    help: 'The duration of each request in milliseconds'
+  }),
+  /** Nodejs Net metrics **/
+  net_connection_active_total: prometheus.newCounter({
+    namespace: namespace,
+    name: 'net_connection_active_total',
+    help: 'The number of currently open TCP connections'
+  }),
+  net_connection_timeout_total: prometheus.newCounter({
+    namespace: namespace,
+    name: 'net_connection_timeout_total',
+    help: 'The number of TCP connections that have timed out'
+  }),
+  net_connection_error_total: prometheus.newCounter({
+    namespace: namespace,
+    name: 'net_connection_error_total',
+    help: 'The number of TCP connections that have errored'
+  })
+};
 
-  return function() {
-    var heapStats = v8.getHeapStatistics();
-    upTime.set({ endpoint: appName }, process.uptime());
-    v8TotalHeapSize.set({ endpoint: appName }, heapStats.total_heap_size);
-    v8TotalHeapSizeExecutable.set({ endpoint: appName }, heapStats.total_heap_size_executable);
-    v8TotalPhysicalSize.set({ endpoint: appName }, heapStats.total_physical_size);
-    v8TotalAvailableSize.set({ endpoint: appName }, heapStats.total_available_size);
-    v8UsedHeapSize.set({ endpoint: appName }, heapStats.used_heap_size);
-    v8HeapSizeLimit.set({ endpoint: appName }, heapStats.heap_size_limit);
-  };
+function makeRequestLabels(req) {
+  return {
+    method: req.method,
+    path: url.parse(req.url).path
+  }
 }
-
 var nodeMetricsTimer;
 
-module.exports = function(appName) {
-  if (nodeMetricsTimer) { return; }
+module.exports = function(appName, appID) {
+  var defaultLabels = {
+    app_name: appName,
+    app_id: appID
+  };
 
-  nodeMetricsTimer = setInterval(createCollector(appName), 5000);
-  // Make sure the time doesn't block the process from stopping.
-  nodeMetricsTimer.unref();
+  if (!nodeMetricsTimer) {
+    nodeMetricsTimer = setInterval(function() {
+      var heapStats = v8.getHeapStatistics();
+      metrics.process_uptime.set(defaultLabels, process.uptime());
+      metrics.v8_total_heap_size_bytes.set(defaultLabels, heapStats.total_heap_size);
+      metrics.v8_total_executable_heap_size_bytes.set(defaultLabels, heapStats.total_heap_size_executable);
+      metrics.v8_total_physical_size_bytes.set(defaultLabels, heapStats.total_physical_size);
+      metrics.v8_total_available_size_bytes.set(defaultLabels, heapStats.total_available_size);
+      metrics.v8_used_heap_size_bytes.set(defaultLabels, heapStats.used_heap_size);
+      metrics.v8_heap_size_limit_bytes.set(defaultLabels, heapStats.heap_size_limit);
+    }, 5000);
+    // Make sure the time doesn't block the process from stopping.
+    nodeMetricsTimer.unref();
+  }
+
+  return {
+    metricsEndpoint: function() {
+      return prometheus.metricsFunc();
+    },
+    measureRequests: function(options) {
+      return function requestCounter(req, res, next) {
+        var duration = process.hrtime();
+        var labels = makeRequestLabels(req);
+        _.extend(labels, defaultLabels);
+        metrics.http_request_active.increment(labels);
+
+        onFinished(res, function(err, res) {
+          duration = process.hrtime(duration);
+          metrics.http_request_active.decrement(labels);
+          metrics.http_request_duration.set(labels, duration[0]/1000 + duration[1]/1000000);
+
+          labels.status = res.statusCode;
+          metrics.http_request_count.increment(labels);
+        });
+
+        next();
+      }
+    },
+    measureServer: function(server, port) {
+      server.on('connection', function(socket) {
+        var labels = _.extend({
+          port: port
+        }, defaultLabels);
+        metrics.net_connection_active_total.increment(labels);
+        socket.on('close', function(err) { metrics.net_connection_active_total.decrement(labels); });
+        socket.on('timeout', function(err) { metrics.net_connection_timeout_total.increment(labels); });
+        socket.on('error', function(err) { metrics.net_connection_error_total.increment(labels); });
+      });
+    }
+  }
 };

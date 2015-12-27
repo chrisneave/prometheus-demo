@@ -15,8 +15,9 @@
     "express": "^4.13.3",
     "ip": "^1.1.0",
     "morgan": "^1.6.1",
+    "node-uuid": "^1.4.7",
     "on-finished": "^2.3.0",
     "prometheus-client": "^0.1.1",
-    "uuid": "^2.0.1"
+    "underscore": "^1.8.3"
   }
 }

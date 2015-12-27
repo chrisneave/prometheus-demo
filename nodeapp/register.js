@@ -1,4 +1,4 @@
-var uuid = require('uuid');
+var uuid = require('node-uuid');
 var consul = require('consul');
 var appUuid = uuid.v4();
 
@@ -10,7 +10,7 @@ module.exports = function(options, callback) {
 
   client.agent.service.register({
     name: options.app,
-    id: options.app + '_' + appUuid,
+    id: options.app + '_' + options.appID,
     tags: options.tags,
     address: options.address,
     port: options.port,
